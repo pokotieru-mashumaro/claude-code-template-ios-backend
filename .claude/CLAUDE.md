@@ -9,7 +9,8 @@
 **プロジェクト名**: [プロジェクト名を記入]
 **種別**: [アプリの種類を記入 例: マッチングアプリ、ECサイト、SNS等]
 **フロントエンド**: iOS (SwiftUI)
-**バックエンド**: Next.js (TypeScript)
+**バックエンド**: Next.js (TypeScript) + Supabase
+**BaaS**: Supabase (PostgreSQL, Auth, Storage, Realtime)
 **その他**: [追加の技術スタックがあれば記入 例: Python FastAPI]
 
 ---
@@ -63,9 +64,9 @@
 **用途**: 開発環境のワンコマンドセットアップ
 
 **実行内容**:
-- Node.js/PostgreSQL/Xcodeのバージョンチェック
+- Node.js/Supabase/Xcodeのバージョンチェック
 - Backend依存関係の自動インストール
-- `.env`ファイルの自動生成
+- `.env`ファイルの自動生成（Supabase設定）
 - Prismaのセットアップ
 - Git hooksの自動設定
 - Claude Code hooksの実行権限付与
@@ -264,7 +265,7 @@ feat: ユーザー登録機能の基本実装を追加
 
 基本的なフェーズ例:
 - Phase 0: 設計フェーズ（要件定義、DB設計、API設計）
-- Phase 1: バックエンド基盤構築（Next.js、PostgreSQL、認証）
+- Phase 1: バックエンド基盤構築（Next.js、Supabase、認証）
 - Phase 2: iOS基盤構築（Clean Architecture、ネットワーク層）
 - Phase 3: コア機能実装
 - Phase 4: 追加機能実装
@@ -319,8 +320,9 @@ feat: ユーザー登録機能の基本実装を追加
 
 ### セキュリティ
 - `any`型は絶対に使用禁止
-- パスワードはbcryptでハッシュ化
-- JWT Access Token（15分）+ Refresh Token（30日）
+- 認証はSupabase Authを使用（自動でJWT管理）
+- Row Level Security (RLS)を必ず有効化
+- Service Role Keyは環境変数で管理、公開禁止
 - HTTPS/WSS必須
 
 ### パフォーマンス
@@ -393,4 +395,4 @@ A: `./scripts/validate-project.sh` を実行。全てのチェックが通れば
 
 ---
 
-**最終更新日**: 2025-12-03
+**最終更新日**: 2025-12-04
