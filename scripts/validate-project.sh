@@ -86,6 +86,14 @@ check_prisma_schema() {
       echo -e "${YELLOW}⚠️  User モデルが見つかりません${NC}"
       ((WARNING_COUNT++))
     fi
+
+    # Supabase設定チェック
+    if grep -q "directUrl" "backend/prisma/schema.prisma"; then
+      echo -e "${GREEN}✅ Supabase directUrl設定済み${NC}"
+    else
+      echo -e "${YELLOW}⚠️  Supabase directUrlが設定されていません${NC}"
+      ((WARNING_COUNT++))
+    fi
   else
     echo -e "${YELLOW}⚠️  backend/prisma/schema.prisma が見つかりません${NC}"
     ((WARNING_COUNT++))
@@ -189,12 +197,59 @@ check_implementation_phases() {
   fi
 }
 
+# Supabase環境変数チェック
+check_supabase_env() {
+  echo ""
+  echo -e "${BLUE}🔑 Supabase環境変数チェック...${NC}"
+
+  if [ -f "backend/.env.example" ]; then
+    REQUIRED_ENV_VARS=(
+      "NEXT_PUBLIC_SUPABASE_URL"
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+      "SUPABASE_SERVICE_ROLE_KEY"
+      "DATABASE_URL"
+      "DIRECT_URL"
+    )
+
+    for var in "${REQUIRED_ENV_VARS[@]}"; do
+      if grep -q "^$var=" "backend/.env.example"; then
+        echo -e "${GREEN}✅ $var (.env.exampleに存在)${NC}"
+      else
+        echo -e "${RED}❌ $var が .env.example に定義されていません${NC}"
+        ((ERROR_COUNT++))
+      fi
+    done
+
+    # .env.localが存在するかチェック（任意）
+    if [ -f "backend/.env.local" ]; then
+      echo -e "${GREEN}✅ backend/.env.local 存在${NC}"
+    else
+      echo -e "${YELLOW}⚠️  backend/.env.local が見つかりません${NC}"
+      echo -e "${YELLOW}   → cp backend/.env.example backend/.env.local で作成してください${NC}"
+      ((WARNING_COUNT++))
+    fi
+  else
+    echo -e "${RED}❌ backend/.env.example が見つかりません${NC}"
+    ((ERROR_COUNT++))
+  fi
+
+  # RLSポリシーファイルの存在確認
+  if [ -f "backend/prisma/rls-policies.sql" ]; then
+    echo -e "${GREEN}✅ RLSポリシーファイル存在${NC}"
+  else
+    echo -e "${YELLOW}⚠️  backend/prisma/rls-policies.sql が見つかりません${NC}"
+    echo -e "${YELLOW}   → Supabase RLSポリシーを設定してください${NC}"
+    ((WARNING_COUNT++))
+  fi
+}
+
 # メイン処理
 check_required_docs
 check_prisma_schema
 check_api_design
 check_claude_config
 check_gitignore
+check_supabase_env
 check_implementation_phases
 
 echo ""

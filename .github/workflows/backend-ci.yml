@@ -15,21 +15,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -57,21 +42,18 @@ jobs:
         working-directory: backend
         run: npx prisma generate
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
-
-      - name: Run database migrations
-        working-directory: backend
-        run: npx prisma db push --skip-generate
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
 
       - name: Run tests
         working-directory: backend
         run: npm test || echo "test script not found"
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
-          JWT_SECRET: test-secret
-          JWT_REFRESH_SECRET: test-refresh-secret
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NODE_ENV: test
 
       - name: Build
