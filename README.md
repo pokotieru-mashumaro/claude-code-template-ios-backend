@@ -36,9 +36,10 @@
 ### Backend
 - **フレームワーク**: Next.js 14+ (App Router)
 - **言語**: TypeScript
+- **BaaS**: Supabase
 - **ORM**: Prisma
-- **データベース**: PostgreSQL
-- **認証**: JWT (Access Token + Refresh Token)
+- **データベース**: PostgreSQL (Supabase)
+- **認証**: Supabase Auth
 
 ---
 

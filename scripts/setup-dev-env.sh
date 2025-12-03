@@ -31,16 +31,12 @@ check_node() {
     fi
 }
 
-# PostgreSQLチェック
-check_postgres() {
-    echo -e "${BLUE}🐘 PostgreSQLチェック...${NC}"
-    if ! command -v psql &> /dev/null; then
-        echo -e "${YELLOW}⚠️  PostgreSQLがインストールされていません${NC}"
-        echo "   https://www.postgresql.org/download/ からインストールしてください"
-        echo "   または Docker を使用: docker run -p 5432:5432 -e POSTGRES_PASSWORD=password postgres"
-    else
-        echo -e "${GREEN}✅ PostgreSQL installed${NC}"
-    fi
+# Supabaseプロジェクトチェック
+check_supabase() {
+    echo -e "${BLUE}🔥 Supabaseプロジェクトチェック...${NC}"
+    echo -e "${YELLOW}   Supabaseプロジェクトを作成してください${NC}"
+    echo -e "${YELLOW}   https://supabase.com/dashboard${NC}"
+    echo -e "${GREEN}✅ Supabaseプロジェクト作成後、.envファイルに設定を記入してください${NC}"
 }
 
 # Xcodeチェック（macOSのみ）
@@ -66,18 +62,21 @@ setup_backend() {
         if [ ! -f ".env" ]; then
             echo -e "${YELLOW}📝 .env ファイルを作成しています...${NC}"
             cat > .env << EOF
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/mydb?schema=public"
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
 
-# JWT
-JWT_SECRET="your-secret-key-change-this-in-production"
-JWT_REFRESH_SECRET="your-refresh-secret-key-change-this-in-production"
+# Database (Supabase PostgreSQL)
+DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.your-project.supabase.co:5432/postgres"
 
 # Node
 NODE_ENV="development"
 EOF
             echo -e "${GREEN}✅ .env ファイル作成完了${NC}"
-            echo -e "${YELLOW}   ⚠️  DATABASE_URLとJWT_SECRETを実際の値に変更してください${NC}"
+            echo -e "${YELLOW}   ⚠️  Supabaseプロジェクトの設定を記入してください${NC}"
+            echo -e "${YELLOW}   Settings > API からキーを取得${NC}"
+            echo -e "${YELLOW}   Settings > Database > Connection string からDATABASE_URLを取得${NC}"
         fi
 
         # 依存関係インストール
@@ -161,7 +160,7 @@ setup_claude_hooks() {
 # メイン処理
 main() {
     check_node
-    check_postgres
+    check_supabase
     check_xcode
     echo ""
 
@@ -180,8 +179,8 @@ main() {
     echo -e "${GREEN}🎉 開発環境セットアップ完了！${NC}"
     echo ""
     echo -e "${YELLOW}次のステップ:${NC}"
-    echo "1. backend/.env を編集して実際のデータベース情報を設定"
-    echo "2. データベースを起動"
+    echo "1. Supabaseプロジェクトを作成（https://supabase.com/dashboard）"
+    echo "2. backend/.env を編集してSupabase設定を記入"
     echo "3. cd backend && npx prisma db push"
     echo "4. cd backend && npm run dev"
     echo "5. iOSアプリをXcodeで開いて実行"

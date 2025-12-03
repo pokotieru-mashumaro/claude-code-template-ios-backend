@@ -1,6 +1,6 @@
-# Backend (Next.js)
+# Backend (Next.js + Supabase)
 
-このディレクトリには、Next.js App Routerを使用したBackend APIが含まれています。
+このディレクトリには、Next.js App Router + Supabaseを使用したBackend APIが含まれています。
 
 ## ディレクトリ構成
 
@@ -14,8 +14,10 @@ backend/
 ├── lib/
 │   ├── db/
 │   │   └── prisma.ts     # Prisma Client設定
-│   └── auth/             # 認証関連
-├── middleware/           # ミドルウェア
+│   └── auth/
+│       └── supabase.ts   # Supabase Client設定
+├── middleware/
+│   └── supabase-auth.ts  # Supabase認証ミドルウェア
 ├── types/
 │   └── index.ts          # TypeScript型定義
 ├── prisma/
@@ -30,14 +32,29 @@ backend/
 
 ## セットアップ
 
+### 1. Supabaseプロジェクト作成
+
+1. [Supabaseダッシュボード](https://supabase.com/dashboard)でプロジェクト作成
+2. Settings > API から以下を取得:
+   - Project URL
+   - anon/public key
+   - service_role key (秘密)
+3. Settings > Database > Connection string から Database URL を取得
+
+### 2. 環境変数設定
+
 ```bash
 # 依存関係インストール
 npm install
 
 # 環境変数設定
 cp .env.example .env
-# .env を編集してデータベースURL等を設定
+# .env を編集してSupabase設定を記入
+```
 
+### 3. データベースセットアップ
+
+```bash
 # Prisma生成
 npm run prisma:generate
 
@@ -46,8 +63,11 @@ npm run prisma:push
 
 # シードデータ投入（オプション）
 npm run prisma:seed
+```
 
-# 開発サーバー起動
+### 4. 開発サーバー起動
+
+```bash
 npm run dev
 ```
 
@@ -98,9 +118,44 @@ npm run prisma:studio
 
 ## 認証
 
-JWT Access Token + Refresh Tokenを使用。
+Supabase Authを使用。
 
-- Access Token: 15分
-- Refresh Token: 30日
+- メール/パスワード認証
+- ソーシャルログイン（Google、GitHub等）
+- Magic Link
+- JWT自動管理
+
+### 認証の使い方
+
+```typescript
+// クライアントサイド
+import { supabaseClient } from '@/lib/auth/supabase';
+
+// サインアップ
+const { data, error } = await supabaseClient.auth.signUp({
+  email: 'user@example.com',
+  password: 'password',
+});
+
+// ログイン
+const { data, error } = await supabaseClient.auth.signInWithPassword({
+  email: 'user@example.com',
+  password: 'password',
+});
+
+// ログアウト
+await supabaseClient.auth.signOut();
+```
+
+### 認証ミドルウェア
+
+```typescript
+import { withSupabaseAuth } from '@/middleware/supabase-auth';
+
+export const GET = withSupabaseAuth(async (req) => {
+  const userId = req.user?.id;
+  // 認証済みユーザーのみアクセス可能
+});
+```
 
 詳細は `docs/requirements/authentication.md` を参照してください。
