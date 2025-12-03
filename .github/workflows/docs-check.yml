@@ -1,0 +1,78 @@
+name: Documentation Check
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - '.claude/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - '.claude/**'
+
+jobs:
+  check-consistency:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Make hooks executable
+        run: chmod +x .claude/hooks/*.sh
+
+      - name: Run requirements consistency check
+        run: ./.claude/hooks/requirements-consistency-check.sh
+
+      - name: Check for broken links in docs
+        run: |
+          # Markdown内のリンクをチェック
+          find docs -name "*.md" -exec grep -H '\[.*\](.*)' {} \; || true
+
+      - name: Check documentation completeness
+        run: |
+          echo "📋 ドキュメント完全性チェック..."
+
+          # 必須ドキュメントの存在確認
+          REQUIRED_DOCS=(
+            "docs/design/database/overall-schema.md"
+            "docs/design/api/endpoints.md"
+            "docs/design/architecture/system-architecture.md"
+            "docs/project-management/implementation-phases.md"
+            "docs/project-management/coding-standards.md"
+          )
+
+          MISSING=0
+          for doc in "${REQUIRED_DOCS[@]}"; do
+            if [ ! -f "$doc" ]; then
+              echo "❌ 必須ドキュメントが見つかりません: $doc"
+              MISSING=$((MISSING + 1))
+            else
+              echo "✅ $doc"
+            fi
+          done
+
+          if [ $MISSING -gt 0 ]; then
+            echo ""
+            echo "❌ $MISSING 個の必須ドキュメントが見つかりません"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ 全ての必須ドキュメントが存在します"
+
+      - name: Check TODO comments
+        run: |
+          echo "🔍 TODOコメントチェック..."
+
+          # docsディレクトリ内のTODOを検索
+          TODO_COUNT=$(grep -r "TODO\|FIXME\|\[記入\]\|\[日付\]\|\[プロジェクト" docs/ | wc -l || echo "0")
+
+          if [ "$TODO_COUNT" -gt 0 ]; then
+            echo "⚠️  $TODO_COUNT 個のTODO/未記入項目が見つかりました:"
+            grep -rn "TODO\|FIXME\|\[記入\]\|\[日付\]\|\[プロジェクト" docs/ || true
+          else
+            echo "✅ TODOなし"
+          fi
