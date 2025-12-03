@@ -9,9 +9,46 @@
 **プロジェクト名**: [プロジェクト名を記入]
 **種別**: [アプリの種類を記入 例: マッチングアプリ、ECサイト、SNS等]
 **フロントエンド**: iOS (SwiftUI)
-**バックエンド**: Next.js (TypeScript) + Supabase
+**バックエンド**: Next.js (TypeScript) + Supabase（オプショナル）
 **BaaS**: Supabase (PostgreSQL, Auth, Storage, Realtime)
 **その他**: [追加の技術スタックがあれば記入 例: Python FastAPI]
+
+---
+
+## アーキテクチャ方針
+
+このプロジェクトは**ハイブリッドアーキテクチャ**を採用しています。
+
+### iOSアプリのデータアクセス方法
+
+#### 1. 直接Supabaseにアクセス（シンプルなCRUD）
+```
+iOS App → Supabase
+```
+- 適用: ユーザープロフィール取得・更新、投稿CRUD、リアルタイム機能
+- メリット: 低レイテンシ、低コスト、シンプル
+
+#### 2. Next.js Backend経由でアクセス（複雑な処理）
+```
+iOS App → Next.js Backend → Supabase
+```
+- 適用: 外部API連携（Stripe、OpenAI等）、管理者機能、複雑なビジネスロジック
+- メリット: セキュア、ロジック集約、RLSバイパス可能
+
+#### 3. ハイブリッド（推奨✨）
+```
+iOS App
+  ├─ 単純なCRUD → 直接Supabase
+  └─ 複雑な処理 → Next.js Backend → Supabase
+```
+
+**実装例**:
+- ユーザープロフィール取得: iOS → Supabase（直接）
+- 課金処理: iOS → Next.js → Stripe + Supabase
+- AIレコメンデーション: iOS → Next.js → OpenAI + Supabase
+
+### Backendが不要な場合
+シンプルなCRUDアプリの場合、`backend/`ディレクトリを削除してSupabase RLSでセキュリティを確保できます。
 
 ---
 

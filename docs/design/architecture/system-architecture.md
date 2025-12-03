@@ -4,24 +4,128 @@
 
 ---
 
-## 全体構成
+## アーキテクチャ方針
 
+このプロジェクトは**ハイブリッドアーキテクチャ**を採用しています。
+
+### データアクセスパターン
+
+#### 1. 直接Supabaseアクセス（推奨：シンプルなCRUD）
 ```
 ┌─────────────┐
 │   iOS App   │
 │  (SwiftUI)  │
 └──────┬──────┘
        │ HTTPS / WSS
+       ▼
+┌─────────────────────┐
+│     Supabase        │
+│  (PostgreSQL + RLS) │
+│  (Auth, Storage)    │
+└─────────────────────┘
+```
+
+**適用ケース**:
+- ユーザープロフィール取得・更新
+- 投稿の作成・一覧取得
+- リアルタイム機能（チャット等）
+
+**メリット**: 低レイテンシ、低コスト、シンプル
+
+---
+
+#### 2. Backend経由アクセス（推奨：複雑な処理）
+```
+┌─────────────┐
+│   iOS App   │
+│  (SwiftUI)  │
+└──────┬──────┘
+       │ HTTPS
+       ▼
+┌──────────────────────┐
+│  Next.js Backend     │
+│  (API Routes)        │
+└──────┬───────────────┘
        │
-┌──────▼─────────────────┐
-│   Next.js Backend      │
-│   (API Routes)         │
-└──────┬─────────────────┘
-       │
-       ├─► PostgreSQL (Prisma)
-       ├─► Redis (セッション)
-       ├─► AWS S3 (画像)
-       └─► [その他のサービス]
+       ▼
+┌─────────────────────┐       ┌──────────────┐
+│     Supabase        │       │ 外部API      │
+│  (PostgreSQL + RLS) │◄─────►│ (Stripe等)   │
+│  (Auth, Storage)    │       └──────────────┘
+└─────────────────────┘
+```
+
+**適用ケース**:
+- 外部API連携（Stripe決済、OpenAI、SendGrid）
+- 複雑なビジネスロジック（ポイント計算、レコメンデーション）
+- 管理者機能（Service Role Keyを使用してRLSをバイパス）
+- 機密データの加工
+
+**メリット**: セキュア、ロジック集約、外部API連携容易
+
+---
+
+#### 3. ハイブリッド（このプロジェクトの推奨✨）
+```
+┌─────────────┐
+│   iOS App   │
+│  (SwiftUI)  │
+└──┬──────┬───┘
+   │      │
+   │      └────────────────────┐
+   │ 単純なCRUD               │ 複雑な処理
+   │                          │
+   ▼                          ▼
+┌─────────────────────┐  ┌──────────────────────┐
+│     Supabase        │  │  Next.js Backend     │
+│  (直接アクセス)      │  │  (API Routes)        │
+└─────────────────────┘  └──────┬───────────────┘
+                                │
+                                ▼
+                         ┌─────────────────────┐
+                         │     Supabase        │
+                         │  + 外部API統合      │
+                         └─────────────────────┘
+```
+
+**実装例**:
+- ✅ ユーザープロフィール取得: **iOS → Supabase（直接）**
+- ✅ 投稿CRUD: **iOS → Supabase（直接）**
+- ✅ リアルタイムチャット: **iOS → Supabase（直接）**
+- ✅ プレミアム課金: **iOS → Next.js → Stripe + Supabase**
+- ✅ AIレコメンデーション: **iOS → Next.js → OpenAI + Supabase**
+
+---
+
+## 全体構成（ハイブリッド）
+
+```
+┌─────────────┐
+│   iOS App   │
+│  (SwiftUI)  │
+└──┬──────┬───┘
+   │      │
+   │      └──────────────────┐
+   │                         │
+   │ Supabase Swift SDK      │ URLSession
+   │                         │
+   ▼                         ▼
+┌─────────────────────┐  ┌──────────────────────┐
+│     Supabase        │  │  Next.js Backend     │
+│                     │  │  (API Routes)        │
+│  - PostgreSQL       │  └──────┬───────────────┘
+│  - Auth (JWT)       │         │ Prisma ORM
+│  - Storage          │         │ Service Role Key
+│  - Realtime         │         │
+│  - Row Level        │         ▼
+│    Security (RLS)   │  ┌─────────────────────┐
+└─────────────────────┘  │     Supabase        │
+                         │  (RLSバイパス可能)   │
+                         └──────┬──────────────┘
+                                │
+                                ├─► 外部API (Stripe)
+                                ├─► 外部API (OpenAI)
+                                └─► 外部API (SendGrid)
 ```
 
 ---
@@ -32,27 +136,32 @@
 - **言語**: Swift
 - **UI**: SwiftUI
 - **アーキテクチャ**: Clean Architecture
-- **ローカルDB**: SwiftData
-- **ネットワーク**: URLSession
+- **BaaS**: Supabase (Auth, Database, Storage, Realtime)
+- **ローカルDB**: SwiftData（オフライン対応時）
+- **ネットワーク**: Supabase Swift SDK / URLSession
 - **依存性管理**: Swift Package Manager
 
-### Backend
+### Backend（オプショナル）
 - **フレームワーク**: Next.js 14+ (App Router)
 - **言語**: TypeScript
+- **BaaS**: Supabase
 - **ORM**: Prisma
-- **認証**: JWT (Access Token + Refresh Token)
-- **WebSocket**: Socket.io / ws
+- **認証**: Supabase Auth (JWT自動管理)
+- **WebSocket**: Supabase Realtime
 - **バリデーション**: Zod
 
-### Database
-- **メインDB**: PostgreSQL
-- **キャッシュ**: Redis
-- **ストレージ**: AWS S3 / Cloudflare R2
+### Supabase (BaaS)
+- **データベース**: PostgreSQL
+- **認証**: Supabase Auth (JWT)
+- **ストレージ**: Supabase Storage
+- **リアルタイム**: Supabase Realtime (WebSocket)
+- **セキュリティ**: Row Level Security (RLS)
+- **エッジ関数**: Supabase Edge Functions（オプション）
 
 ### インフラ
-- **ホスティング**: Vercel / AWS
-- **画像配信**: CloudFront / Cloudflare CDN
-- **監視**: Sentry / CloudWatch
+- **BaaS**: Supabase
+- **Backend**: Vercel / AWS
+- **監視**: Sentry / Supabase Dashboard
 
 ---
 

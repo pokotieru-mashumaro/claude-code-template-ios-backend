@@ -1,13 +1,13 @@
 # iOS + Backend プロジェクトテンプレート（Claude Code用）
 
-このテンプレートは、**iOS (SwiftUI) + Next.js Backend** の構成でアプリケーションを開発する際に、Claude Codeが効率的に作業できるように設計されたプロジェクトテンプレートです。
+このテンプレートは、**iOS (SwiftUI) + Supabase + Next.js Backend** の構成でアプリケーションを開発する際に、Claude Codeが効率的に作業できるように設計されたプロジェクトテンプレートです。
 
 ---
 
 ## 📋 特徴
 
 ### コア機能
-- ✅ **iOS + Backend統合開発**に最適化された構成
+- ✅ **iOS + Supabase + Backend統合開発**に最適化された構成
 - ✅ **Clean Architecture**によるiOS設計
 - ✅ **型安全性**を重視（Swift/TypeScript共に`any`型禁止）
 - ✅ **自動整合性チェック**（要件定義、DB、型定義）
@@ -21,6 +21,7 @@
 - ✅ **プロジェクト検証**: Phase 0完了チェック自動化
 - 📝 **コードテンプレート**: API/UI/ViewModelのテンプレート完備
 - 🔍 **セキュリティスキャン**: npm audit + secrets検出
+- 🔐 **Supabase RLS**: Row Level Security設定済み
 
 ---
 
@@ -30,10 +31,11 @@
 - **言語**: Swift
 - **UI**: SwiftUI
 - **アーキテクチャ**: Clean Architecture
-- **ローカルDB**: SwiftData
-- **ネットワーク**: URLSession
+- **BaaS**: Supabase (Auth, Database, Storage, Realtime)
+- **ローカルDB**: SwiftData（オフライン対応時）
+- **ネットワーク**: Supabase Swift SDK / URLSession
 
-### Backend
+### Backend（オプショナル）
 - **フレームワーク**: Next.js 14+ (App Router)
 - **言語**: TypeScript
 - **BaaS**: Supabase
@@ -43,34 +45,149 @@
 
 ---
 
+## 🏛️ アーキテクチャ選択肢
+
+このテンプレートは**ハイブリッドアーキテクチャ**を採用しています。
+
+### 📱 iOSアプリのデータアクセス方法
+
+#### 1️⃣ 直接Supabaseにアクセス（推奨：シンプルなCRUD）
+
+```
+iOS App → Supabase
+```
+
+**適しているケース**:
+- ユーザープロフィールの取得・更新
+- 投稿の作成・一覧取得
+- リアルタイム機能（チャット等）
+- 単純なCRUD操作
+
+**メリット**:
+- レイテンシが低い
+- インフラコストが低い（Backendサーバー不要）
+- シンプルな実装
+
+**実装例**:
+```swift
+// iOS → Supabase（直接）
+let users: [User] = try await supabase
+  .from("users")
+  .select()
+  .execute()
+  .value
+```
+
+---
+
+#### 2️⃣ Next.js Backend経由でアクセス（推奨：複雑な処理）
+
+```
+iOS App → Next.js Backend → Supabase
+```
+
+**適しているケース**:
+- 複雑なビジネスロジック（ポイント計算、レコメンデーション）
+- 外部API連携（Stripe決済、SendGrid、OpenAI）
+- 管理者機能（Service Role Keyを使用してRLSをバイパス）
+- 機密データの加工（APIキー管理、暗号化処理）
+- バッチ処理（定期的なデータ集計、通知送信）
+
+**メリット**:
+- ビジネスロジックをBackendに集約
+- セキュアな処理が可能
+- 外部API連携が容易
+- レート制限・キャッシュ制御
+
+**実装例**:
+```swift
+// iOS → Next.js → Supabase
+let recommendation: Recommendation = try await networkService.request(
+  endpoint: "/api/recommendations",
+  method: .get
+)
+```
+
+---
+
+#### 3️⃣ ハイブリッドアプローチ（このテンプレートの推奨✨）
+
+```
+iOS App
+  ├─ 単純なCRUD → 直接Supabase
+  └─ 複雑な処理 → Next.js Backend → Supabase
+```
+
+**実装例**:
+- ✅ ユーザープロフィール取得: **iOS → Supabase（直接）**
+- ✅ 投稿の作成・取得: **iOS → Supabase（直接）**
+- ✅ リアルタイムチャット: **iOS → Supabase（直接）**
+- ✅ プレミアム課金処理: **iOS → Next.js → Stripe + Supabase**
+- ✅ AIレコメンデーション: **iOS → Next.js → OpenAI + Supabase**
+- ✅ 管理者ダッシュボード: **iOS → Next.js → Supabase（RLSバイパス）**
+
+---
+
+### 🎯 アーキテクチャ選択ガイド
+
+| 要件 | 推奨アーキテクチャ | 理由 |
+|------|------------------|------|
+| シンプルなCRUDアプリ | iOS → Supabase（直接） | シンプル、低コスト |
+| 外部API連携が必要 | iOS → Next.js → Supabase | セキュア、柔軟 |
+| リアルタイム機能が必要 | iOS → Supabase（直接） | 低レイテンシ |
+| 複雑なビジネスロジック | iOS → Next.js → Supabase | ロジック集約 |
+| 管理者機能が必要 | iOS → Next.js → Supabase | RLSバイパス可能 |
+
+---
+
+### 💡 Backendが不要な場合
+
+シンプルなCRUDアプリの場合、**Backendディレクトリを削除**してもOKです：
+
+```bash
+rm -rf backend
+```
+
+iOSから直接Supabaseにアクセスし、**Supabase RLS (Row Level Security)** でセキュリティを確保できます。
+
+詳細は [docs/design/database/rls-security.md](docs/design/database/rls-security.md) を参照してください。
+
+---
+
 ## 📁 ディレクトリ構成
 
 ```
 project-root/
-├── ios/                         # iOSアプリ（Clean Architecture）
-├── backend/                     # Next.jsバックエンド
+├── ios/                         # iOSアプリ（Clean Architecture + Supabase SDK）
+├── backend/                     # Next.jsバックエンド（オプショナル）
 ├── docs/                        # ドキュメント
 │   ├── requirements/            # 要件定義（ビジネス要件のみ）
 │   ├── design/                  # 技術設計
-│   │   ├── database/            # DB設計
+│   │   ├── database/            # DB設計 + RLS設計
 │   │   ├── api/                 # API設計
 │   │   ├── architecture/        # アーキテクチャ
 │   │   └── ui-ux/               # UI/UX設計
+│   ├── setup/                   # セットアップガイド
+│   │   └── supabase-setup.md   # Supabaseセットアップ
 │   └── project-management/      # プロジェクト管理
 ├── .claude/                     # Claude Code設定
 │   ├── CLAUDE.md                # プロジェクト設定
 │   ├── settings.local.json      # Hook設定
 │   └── hooks/                   # 自動チェックスクリプト
-├── scripts/                     # 🚀 NEW! 自動化スクリプト
+├── scripts/                     # 🚀 自動化スクリプト
 │   ├── setup-dev-env.sh         # 開発環境セットアップ
+│   ├── setup-ios-project.sh     # iOSプロジェクト作成
 │   ├── generate-feature.sh      # 機能自動生成
-│   └── validate-project.sh      # プロジェクト検証
-├── templates/                   # 🚀 NEW! コードテンプレート
+│   ├── validate-project.sh      # プロジェクト検証
+│   ├── sync-types.sh            # 型同期
+│   └── migrate-database.sh      # DBマイグレーション
+├── templates/                   # 🚀 コードテンプレート
 │   ├── api-route.template.ts    # API Routeテンプレート
+│   ├── middleware-auth.template.ts  # Supabase認証ミドルウェア
 │   ├── swift-view.template.swift      # SwiftUI Viewテンプレート
 │   └── swift-viewmodel.template.swift # ViewModelテンプレート
-└── .github/workflows/           # 🚀 NEW! CI/CD設定
-    ├── backend-ci.yml           # Backendビルド・テスト
+└── .github/workflows/           # 🚀 CI/CD設定
+    ├── backend-ci.yml           # Backendビルド・テスト（Supabase対応）
     ├── ios-ci.yml               # iOSビルド・テスト
     └── docs-check.yml           # ドキュメント整合性チェック
 ```
@@ -86,20 +203,37 @@ project-root/
 cp -r claude-code-template-ios-backend /path/to/your-new-project
 cd /path/to/your-new-project
 
-# 2. 開発環境セットアップ（ワンコマンド）
+# 2. Supabaseプロジェクト作成
+# https://supabase.com でプロジェクト作成
+# 詳細: docs/setup/supabase-setup.md
+
+# 3. 開発環境セットアップ（ワンコマンド）
 ./scripts/setup-dev-env.sh
 
-# 3. プロジェクト設定をカスタマイズ
-# .claude/CLAUDE.md を編集
-# .claude/hooks/requirements-consistency-check.sh を編集
+# 4. Supabase環境変数設定
+cp backend/.env.example backend/.env.local
+# backend/.env.local を編集してSupabase認証情報を入力
 
-# 4. 要件定義・設計書を作成
+# 5. データベースマイグレーション
+cd backend
+npx prisma db push
+
+# 6. Supabase RLSポリシー設定
+# backend/prisma/rls-policies.sql をSupabase SQL Editorで実行
+
+# 7. iOSプロジェクト作成
+./scripts/setup-ios-project.sh MyApp
+
+# 8. プロジェクト設定をカスタマイズ
+# .claude/CLAUDE.md を編集
+
+# 9. 要件定義・設計書を作成
 # docs/ 配下のファイルを編集
 
-# 5. 設計完了チェック
+# 10. 設計完了チェック
 ./scripts/validate-project.sh
 
-# 6. 新機能を自動生成して実装開始！
+# 11. 新機能を自動生成して実装開始！
 ./scripts/generate-feature.sh User crud
 ```
 
@@ -107,75 +241,17 @@ cd /path/to/your-new-project
 
 ### 詳細セットアップ
 
-#### 1. テンプレートをコピー
+完全なセットアップガイドは以下を参照してください：
 
-```bash
-cp -r claude-code-template-ios-backend /path/to/your-new-project
-cd /path/to/your-new-project
-```
+1. **Supabaseセットアップ**: [docs/setup/supabase-setup.md](docs/setup/supabase-setup.md)
+   - プロジェクト作成
+   - 環境変数取得
+   - データベースマイグレーション
+   - RLSポリシー設定
 
-#### 2. 開発環境セットアップ
+2. **Backendセットアップ**: [backend/README.md](backend/README.md)
 
-```bash
-# 自動セットアップスクリプト実行
-./scripts/setup-dev-env.sh
-```
-
-このスクリプトは以下を自動で実行します：
-- Node.js/PostgreSQL/Xcodeのバージョンチェック
-- Backend依存関係のインストール
-- .envファイルの自動生成
-- Prismaのセットアップ
-- Claude Code hooksの実行権限付与
-
-#### 3. プロジェクト設定をカスタマイズ
-
-`.claude/CLAUDE.md` を編集：
-- プロジェクト名
-- アプリの種類
-- 技術スタック
-
-`.claude/hooks/requirements-consistency-check.sh` を編集：
-```bash
-FORBIDDEN_KEYWORDS=("いいね機能" "検索機能")
-REQUIRED_FEATURES=("広告非表示")
-REQUIRED_TABLES=("User" "Post")
-```
-
-#### 4. Phase 0: 設計フェーズ
-
-要件定義を作成：
-```bash
-# テンプレートをコピーして編集
-cp docs/requirements/_TEMPLATE.md docs/requirements/user-profile.md
-```
-
-技術設計を作成：
-- `docs/design/database/overall-schema.md` - Prismaスキーマ
-- `docs/design/api/endpoints.md` - API定義
-- `docs/design/architecture/system-architecture.md` - アーキテクチャ
-
-#### 5. 設計完了チェック
-
-```bash
-# プロジェクト検証スクリプト実行
-./scripts/validate-project.sh
-```
-
-全てのチェックが通れば、Phase 1（実装）開始可能！
-
-#### 6. Phase 1〜: 実装フェーズ
-
-新機能を自動生成：
-```bash
-# CRUD機能の完全な実装
-./scripts/generate-feature.sh Post crud
-
-# APIのみ
-./scripts/generate-feature.sh Comment api
-```
-
-詳細は `docs/project-management/implementation-phases.md` を参照してください。
+3. **iOSセットアップ**: [ios/README.md](ios/README.md)
 
 ---
 
@@ -196,11 +272,12 @@ cp docs/requirements/_TEMPLATE.md docs/requirements/user-profile.md
 **トリガー**: 以下のファイル編集時
 - `backend/prisma/schema.prisma`
 - `backend/types/index.ts`
-- `ios/[プロジェクト名]/Domain/Entities/*.swift`
+- `ios/App/Domain/Entities/*.swift`
 - `docs/design/database/overall-schema.md`
 
 **チェック内容**:
 - ⚠️ 型定義が同期されているか警告を表示
+- ⚠️ Supabase固有の型変換（UUID → String、snake_case → camelCase）
 - ⚠️ チェックリストを表示
 
 ---
@@ -221,7 +298,8 @@ cp docs/requirements/_TEMPLATE.md docs/requirements/user-profile.md
 
 ### docs/design/ - 技術設計
 **含めるべき内容**:
-- ✅ データベーススキーマ（Prisma、SwiftData）
+- ✅ データベーススキーマ（Prisma、Supabase）
+- ✅ Supabase RLSポリシー
 - ✅ API エンドポイント定義
 - ✅ アーキテクチャ図
 - ✅ ディレクトリ構成
@@ -234,14 +312,19 @@ cp docs/requirements/_TEMPLATE.md docs/requirements/user-profile.md
 
 1. **Backend**:
    - [ ] `backend/prisma/schema.prisma`
-   - [ ] `backend/types/index.ts`
-   - [ ] `prisma db push` または `prisma migrate dev` 実行
+   - [ ] `backend/types/index.ts`（snake_case ⇔ camelCase変換）
+   - [ ] `backend/prisma/rls-policies.sql`（新テーブルの場合）
+   - [ ] `npx prisma db push` 実行
+   - [ ] Supabase SQL EditorでRLSポリシー実行
 
 2. **iOS**:
-   - [ ] `ios/[プロジェクト名]/Domain/Entities/*.swift`
+   - [ ] `ios/App/Domain/Entities/*.swift`（UUID → String変換）
 
 3. **ドキュメント**:
    - [ ] `docs/design/database/overall-schema.md`
+   - [ ] `docs/design/database/rls-security.md`（新テーブルの場合）
+
+詳細は `./scripts/sync-types.sh` を参照してください。
 
 ---
 
@@ -267,49 +350,29 @@ cp docs/requirements/_TEMPLATE.md docs/requirements/user-profile.md
 
 ---
 
-## 📦 テンプレートに含まれるファイル
+## 📦 主要ファイル
 
-### .claude/ - Claude Code設定
-- `CLAUDE.md` - プロジェクト設定（カスタマイズ必須）
-- `settings.local.json` - Hook設定
-- `hooks/requirements-consistency-check.sh` - 要件定義整合性チェック（カスタマイズ必須）
-- `hooks/type-sync-check.sh` - 型同期チェック
-- `hooks/README.md` - Hook説明書
+### Supabase関連
+- `backend/prisma/rls-policies.sql` - Row Level Securityポリシー
+- `backend/lib/auth/supabase.ts` - Supabaseクライアント設定
+- `backend/lib/errors/supabase-errors.ts` - Supabaseエラーハンドリング
+- `backend/middleware/supabase-auth.ts` - Supabase認証ミドルウェア
+- `ios/App/Data/DataSources/SupabaseClient.swift` - iOS Supabaseクライアント
+- `docs/design/database/rls-security.md` - RLS設計ドキュメント
+- `docs/setup/supabase-setup.md` - Supabaseセットアップガイド
 
-### docs/ - ドキュメント
-#### requirements/
-- `_TEMPLATE.md` - 要件定義テンプレート
+### 自動化スクリプト
+- `scripts/setup-dev-env.sh` - 開発環境セットアップ
+- `scripts/setup-ios-project.sh` - iOSプロジェクト作成
+- `scripts/generate-feature.sh` - 機能自動生成
+- `scripts/validate-project.sh` - プロジェクト検証（Supabaseチェック含む）
+- `scripts/sync-types.sh` - 型同期（Supabase対応）
+- `scripts/migrate-database.sh` - DBマイグレーション
 
-#### design/
-- `database/overall-schema.md` - データベース設計テンプレート
-- `api/endpoints.md` - REST API設計テンプレート
-- `api/websocket.md` - WebSocket API設計テンプレート
-- `architecture/system-architecture.md` - アーキテクチャ設計
-- `architecture/directory-structure.md` - ディレクトリ構成
-- `ui-ux/screen-list.md` - 画面一覧
-- `ui-ux/screen-details.md` - 画面詳細設計
-- `notification/notification-timing.md` - 通知タイミング設計
-
-#### project-management/
-- `implementation-phases.md` - 実装フェーズ計画
-- `coding-standards.md` - コーディング規約
-
-### scripts/ - 🚀 自動化スクリプト
-- `setup-dev-env.sh` - 開発環境ワンコマンドセットアップ
-- `generate-feature.sh` - 機能自動生成（CRUD/API/iOS/Docs）
-- `validate-project.sh` - プロジェクト検証（Phase 0完了チェック）
-- `README.md` - スクリプト使用方法
-
-### templates/ - 🚀 コードテンプレート
-- `api-route.template.ts` - Next.js API Route（GET/POST, バリデーション）
-- `swift-view.template.swift` - SwiftUI View（Loading/Error/Empty状態）
-- `swift-viewmodel.template.swift` - ViewModel（MVVM, Combine）
-- `README.md` - テンプレート使用方法
-
-### .github/workflows/ - 🚀 CI/CD
-- `backend-ci.yml` - Backendビルド・テスト・セキュリティスキャン
-- `ios-ci.yml` - iOSビルド・テスト
-- `docs-check.yml` - ドキュメント整合性チェック
+### Claude Code設定
+- `.claude/CLAUDE.md` - プロジェクト設定
+- `.claude/hooks/requirements-consistency-check.sh` - 要件定義整合性チェック
+- `.claude/hooks/type-sync-check.sh` - 型同期チェック
 
 ---
 
@@ -317,21 +380,33 @@ cp docs/requirements/_TEMPLATE.md docs/requirements/user-profile.md
 
 ### プロジェクト開始時に必ずやること
 
-1. **開発環境セットアップスクリプト実行**
+1. **Supabaseプロジェクト作成**
+   - [docs/setup/supabase-setup.md](docs/setup/supabase-setup.md) に従ってSupabaseプロジェクトを作成
+
+2. **開発環境セットアップスクリプト実行**
    ```bash
    ./scripts/setup-dev-env.sh
    ```
-   このスクリプトが自動で実行権限付与、依存関係インストール、.env生成を行います。
 
-2. **`.claude/CLAUDE.md` をカスタマイズ**
+3. **環境変数設定**
+   ```bash
+   cp backend/.env.example backend/.env.local
+   # backend/.env.local を編集してSupabase認証情報を入力
+   ```
+
+4. **データベースマイグレーション**
+   ```bash
+   cd backend
+   npx prisma db push
+   ```
+
+5. **Supabase RLSポリシー設定**
+   - Supabase SQL Editorで `backend/prisma/rls-policies.sql` を実行
+
+6. **`.claude/CLAUDE.md` をカスタマイズ**
    - プロジェクト名、概要、技術スタックを記入
 
-3. **`.claude/hooks/requirements-consistency-check.sh` をカスタマイズ**
-   - `FORBIDDEN_KEYWORDS`: 実装しない機能を追加
-   - `REQUIRED_FEATURES`: プレミアム必須特典を追加
-   - `REQUIRED_TABLES`: データベース必須テーブルを追加
-
-4. **Phase 0完了後の検証**
+7. **Phase 0完了後の検証**
    ```bash
    ./scripts/validate-project.sh
    ```
@@ -340,8 +415,12 @@ cp docs/requirements/_TEMPLATE.md docs/requirements/user-profile.md
 
 ## 🔗 関連ドキュメント
 
+### セットアップ
+- [Supabaseセットアップガイド](docs/setup/supabase-setup.md) - プロジェクト作成から環境変数設定まで
+
 ### 設計・アーキテクチャ
 - [システムアーキテクチャ](docs/design/architecture/system-architecture.md) - 全体構成、技術スタック、データフロー
+- [RLSセキュリティ設計](docs/design/database/rls-security.md) - Row Level Security詳細
 - [ディレクトリ構成](docs/design/architecture/directory-structure.md) - iOS/Backend/docsの構成
 
 ### プロジェクト管理
@@ -380,7 +459,14 @@ cp docs/requirements/_TEMPLATE.md docs/requirements/user-profile.md
 4. **型安全性を保つ**
    - `any`型は絶対に使わない
    - 型定義は Backend, iOS, ドキュメント全てで同期
+   - Supabase固有の型変換（UUID → String、snake_case → camelCase）に注意
+
+5. **セキュリティを重視する**
+   - Supabase RLSポリシーを必ず設定
+   - Service Role Keyは環境変数で管理し、公開しない
+   - 機密データはBackend経由でアクセス
 
 ---
 
-**作成日**: 2025-12-03
+**作成日**: 2025-12-04
+**Supabase対応**: 2025-12-04
