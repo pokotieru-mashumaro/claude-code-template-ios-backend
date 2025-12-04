@@ -33,15 +33,32 @@ Presentation → Domain ← Data
 
 ## セットアップ
 
-### 1. Swift Packageプロジェクト作成
+### ⚠️ 重要: Xcodeプロジェクトの手動作成が必要
 
-```bash
-# Xcodeプロジェクトをセットアップ
-./scripts/setup-ios-project.sh MyApp
+このテンプレートには**Swiftソースコードのみ**が含まれており、Xcodeプロジェクトファイル（`.xcodeproj`）は含まれていません。
 
-# Xcodeで開く
-open ios/
-```
+**詳細な手順**: [docs/setup/ios-setup.md](../docs/setup/ios-setup.md) を参照してください。
+
+### クイックスタート
+
+1. **Xcodeで新規プロジェクトを作成**
+   - iOS → App → SwiftUI
+   - プロジェクト名: `YourAppName`
+   - 保存場所: `ios/` ディレクトリ
+
+2. **テンプレートファイルを追加**
+   - Xcodeで "Add Files to 'YourAppName'..."
+   - `ios/App/` フォルダを選択してインポート
+
+3. **Supabase Swift SDKをインストール**
+   - File → Add Package Dependencies...
+   - URL: `https://github.com/supabase/supabase-swift`
+
+4. **ビルド & 実行**
+   - `Cmd + B` でビルド
+   - `Cmd + R` で実行
+
+完全な手順は [docs/setup/ios-setup.md](../docs/setup/ios-setup.md) を確認してください。
 
 ### 2. Supabase設定
 
