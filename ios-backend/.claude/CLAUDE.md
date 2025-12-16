@@ -247,6 +247,10 @@ iOS用のGitHub Actions
 - 命名: camelCase (変数・関数), PascalCase (クラス・構造体)
 - `any`型禁止
 - ファイル名: PascalCase.swift
+- **UI実装時は必ず `ios-design` skillを使用すること**
+  ```bash
+  /ios-design
+  ```
 
 ### TypeScript (Backend)
 - インデント: 2スペース
@@ -414,6 +418,9 @@ A: `./scripts/validate-project.sh` を実行。全てのチェックが通れば
      - `FORBIDDEN_KEYWORDS`: 実装しない機能を追加
      - `REQUIRED_FEATURES`: プレミアム必須特典を追加
      - `REQUIRED_TABLES`: データベース必須テーブルを追加
+   - [ ] `.claude/skills/ios-design/SKILL.md`を確認
+     - iOS UIデザインのガイドライン
+     - SwiftUIのベストプラクティス
 
 4. **Phase 0: 設計フェーズ**
    - [ ] 要件定義を作成（`docs/requirements/`）
@@ -432,4 +439,85 @@ A: `./scripts/validate-project.sh` を実行。全てのチェックが通れば
 
 ---
 
-**最終更新日**: 2025-12-04
+## Git Worktreeを使った機能開発
+
+機能追加や修正を行う際は、**git worktree**を使用してブランチごとに独立した作業ディレクトリで開発します。
+
+### Pluginの使用（必須）
+
+**`~/.claude`にインストールされているpluginを使用してください。**
+
+特に以下のコマンドが利用可能です：
+
+#### Git Flow関連（git-workflow plugin）
+```bash
+# 新機能ブランチを作成
+/git-workflow:feature <feature-name>
+
+# リリースブランチを作成
+/git-workflow:release <version>
+
+# ホットフィックスブランチを作成
+/git-workflow:hotfix <hotfix-name>
+
+# ブランチを完了・マージ
+/git-workflow:finish [--no-delete] [--no-tag]
+
+# Git Flowステータス確認
+/git-workflow:flow-status
+```
+
+#### コミット・PR関連（commit-commands plugin）
+```bash
+# コミット作成
+/commit-commands:commit
+
+# コミット、プッシュ、PR作成を一括実行
+/commit-commands:commit-push-pr
+
+# 削除済みリモートブランチのローカルクリーンアップ
+/commit-commands:clean_gone
+```
+
+#### コードレビュー関連（pr-review-toolkit plugin）
+```bash
+# PRの包括的レビュー
+/pr-review-toolkit:review-pr [review-aspects]
+```
+
+### 機能開発ワークフロー
+
+1. **機能ブランチ作成**
+   ```bash
+   /git-workflow:feature user-authentication
+   ```
+
+2. **実装作業**
+   - コードを実装
+   - テストを作成・実行
+
+3. **コミット**
+   ```bash
+   /commit-commands:commit
+   ```
+
+4. **レビュー・PR作成**
+   ```bash
+   /pr-review-toolkit:review-pr
+   /commit-commands:commit-push-pr
+   ```
+
+5. **機能完了**
+   ```bash
+   /git-workflow:finish
+   ```
+
+### 注意事項
+
+- 機能開発は必ずfeatureブランチで行う
+- mainブランチへの直接コミットは禁止
+- PRを作成する前に必ずレビューpluginを実行する
+
+---
+
+**最終更新日**: 2025-12-16
